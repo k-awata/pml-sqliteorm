@@ -1,0 +1,19 @@
+-----------------------------------------------------------------------
+--
+-- Copyright (c) 2022 K.Awata
+--
+-- File:        sqlite3path.pmlfnc
+-- Type:        Function Definition
+-- Module:      General Application
+-- Description: Return path of sqlite3.exe
+--
+-----------------------------------------------------------------------
+
+define function !!sqlite3path() is STRING
+    !self = 'sqlite3path.pmlfnc'
+    !file = object FILE(!!PML.GetPathName(!self).Replace('/', '\').Replace(!self, 'sqlite3.exe', -1, 1))
+    if !file.Exists() then
+        return |"| + !file.Name() + |"|
+    endif
+    return 'sqlite3'
+endfunction

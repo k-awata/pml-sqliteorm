@@ -1,0 +1,90 @@
+define object sqliteormTest
+    member .db is SQLITEORM
+endobject
+
+define method .setup()
+    !this.db = object SQLITEORM('%temp%\sqliteormTest.sqlite3')
+    !this.db.dbFile.DeleteFile()
+    !this.db.Execute(|
+        CREATE TABLE "mock" (
+            "id"    INTEGER NOT NULL,
+            "match" TEXT NOT NULL,
+            "check" TEXT NOT NULL DEFAULT 'default',
+            PRIMARY KEY("id")
+        );
+    |)
+endmethod
+
+define method .testInsert(!assert is PmlAssert)
+    !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "bar", "check": "pass"}'))
+    !this.db.Insert('mock', !!stringmap('{"id": 2, "match": "bar", "check": "pass"}'))
+    !this.db.Insert('mock', !!stringmap('{"id": 3, "match": "bar", "check": "pass"}'))
+    do !r values !this.db.Select('mock', '"check"', !!stringmap('{"match": "bar"}')).StringMaps()
+        !assert.equal('pass', !r.Get('check'))
+    enddo
+endmethod
+
+define method .testGetColumnArray(!assert is PmlAssert)
+    !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "bar", "check": "pass"}'))
+    !this.db.Insert('mock', !!stringmap('{"id": 2, "match": "bar", "check": "pass"}'))
+    !this.db.Insert('mock', !!stringmap('{"id": 3, "match": "bar", "check": "pass"}'))
+    do !r values !this.db.Select('mock', '*', !!stringmap('{"match": "bar"}')).Column('check')
+        !assert.equal('pass', !r)
+    enddo
+endmethod
+
+define method .testSQLToFail(!assert is PmlAssert)
+    !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "foo"}'))
+    !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "foo"}'))
+    handle any
+        !assert.isTrue(!!error.text.MatchWild('SQL execution error *'))
+    elsehandle none
+        !assert.fail()
+    endhandle
+endmethod
+
+define method .testReplace(!assert is PmlAssert)
+    !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "foo"}'))
+    !this.db.Replace('mock', !!stringmap('{"id": 1, "match": "bar", "check": "pass"}'))
+    !this.db.Replace('mock', !!stringmap('{"id": 2, "match": "bar", "check": "pass"}'))
+    do !r values !this.db.Select('mock', '"check"', !!stringmap('{"match": "bar"}')).StringMaps()
+        !assert.equal('pass', !r.Get('check'))
+    enddo
+endmethod
+
+define method .testUpdate(!assert is PmlAssert)
+    !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "foo", "check": "pass"}'))
+    !this.db.Insert('mock', !!stringmap('{"id": 2, "match": "bar"}'))
+    !this.db.Insert('mock', !!stringmap('{"id": 3, "match": "bar"}'))
+    !this.db.Update('mock', !!stringmap('{"check": "pass"}'), !!stringmap('{"match": "bar"}'))
+    do !r values !this.db.Select('mock', '"check"', !!stringmap('{"match": "bar"}')).StringMaps()
+        !assert.equal('pass', !r.Get('check'))
+    enddo
+endmethod
+
+define method .testDelete(!assert is PmlAssert)
+    !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "foo", "check": "to be del"}'))
+    !this.db.Insert('mock', !!stringmap('{"id": 2, "match": "bar", "check": "pass"}'))
+    !this.db.Delete('mock', !!stringmap('{"id": 1, "match": "foo", "check": "to be del"}'))
+    do !r values !this.db.Select('mock', '"check"', !!stringmap('{"match": "bar"}')).StringMaps()
+        !assert.equal('pass', !r.Get('check'))
+    enddo
+endmethod
+
+define method .testExists(!assert is PmlAssert)
+    !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "bar"}'))
+    !assert.isTrue(!this.db.Exists('mock', !!stringmap('{"match": "bar"}')))
+    !assert.isFalse(!this.db.Exists('mock', !!stringmap('{"match": "foo"}')))
+endmethod
+
+define method .testCount(!assert is PmlAssert)
+    !recordset = object RECORDSET()
+    !recordset.Append(!!stringmap('{"id": 1, "match": "foo"}'))
+    !recordset.Append(!!stringmap('{"id": 2, "match": "foo"}'))
+    !recordset.Append(!!stringmap('{"id": 3, "match": "bar"}'))
+    !recordset.Append(!!stringmap('{"id": 4, "match": "bar"}'))
+    !recordset.Append(!!stringmap('{"id": 5, "match": "bar"}'))
+    !this.db.Insert('mock', !recordset)
+    !assert.equal(2, !this.db.Count('mock', !!stringmap('{"match": "foo"}')))
+    !assert.equal(3, !this.db.Count('mock', !!stringmap('{"match": "bar"}')))
+endmethod

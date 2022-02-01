@@ -1,0 +1,236 @@
+-----------------------------------------------------------------------
+--
+-- Copyright (c) 2022 K.Awata
+--
+-- File:        stringmap.pmlobj
+-- Type:        Object Definition
+-- Module:      General Application
+-- Description: Object to store data in key and value pairs
+--
+-----------------------------------------------------------------------
+
+define object STRINGMAP
+    member .keys   is ARRAY
+    member .values is ARRAY
+endobject
+
+-----------------------------------------------------------------------
+--
+-- Method:     .stringmap(!keys is ARRAY, !values is ARRAY)
+--
+-- Description: Constructor
+--
+-----------------------------------------------------------------------
+define method .stringmap(!keys is ARRAY, !values is ARRAY)
+    !this.keys = !keys
+    !this.values = !values
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .Get(!key is STRING)
+--
+-- Description: Return value of specified key as STRING.
+--
+-----------------------------------------------------------------------
+define method .Get(!key is STRING) is STRING
+    !index = !this.keys.FindFirst(!key)
+    if !index.Unset() then
+        return error 1 'Undefined key'
+    endif
+    return !this.values[!index]
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .GetReal(!key is STRING) is REAL
+--
+-- Description: Return value of specified key as REAL.
+--
+-----------------------------------------------------------------------
+define method .GetReal(!key is STRING) is REAL
+    return !this.Get(!key).Real()
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .GetBoolean(!key is STRING) is BOOLEAN
+--
+-- Description: Return value of specified key as BOOLEAN.
+--
+-----------------------------------------------------------------------
+define method .GetBoolean(!key is STRING) is BOOLEAN
+    !bool = !this.GetReal(!key).Boolean()
+    handle any
+        !bool = !this.Get(!key).Boolean()
+    endhandle
+    return !bool
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .GetDateTime(!key is STRING)
+--
+-- Description: Return value of specified key as DATETIME.
+--
+-----------------------------------------------------------------------
+define method .GetDateTime(!key is STRING) is DATETIME
+    !dateTime = !this.Get(!key)
+    !date = !dateTime.Before(' ')
+    !time = !dateTime.After(' ')
+    if !date.Match(':') ne 0 then
+        !date = ''
+        !time = !dateTime
+    endif
+
+    !year = !date.Part(1, '-').Real()
+    if !year.Unset() then
+        !year = 1901
+    endif
+    !month = !date.Part(2, '-').Real()
+    if !month.Unset() then
+        !month = 1
+    endif
+    !day = !date.Part(3, '-').Real()
+    if !day.Unset() then
+        !day = 1
+    endif
+    !hour = !time.Part(1, ':').Real()
+    if !hour.Unset() then
+        !hour = 0
+    endif
+    !minute = !time.Part(2, ':').Real()
+    if !minute.Unset() then
+        !minute = 0
+    endif
+    !second = !time.Part(3, ':').Real()
+    if !second.Unset() then
+        !second = 0
+    endif
+
+    return object DATETIME(!year, !month, !day, !hour, !minute, !second)
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .Has(!key is STRING)
+--
+-- Description: Return whether this object has the specified key.
+--
+-----------------------------------------------------------------------
+define method .Has(!key is STRING) is BOOLEAN
+    return !this.keys.FindFirst(!key).Set()
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .Set(!key is STRING, !value is STRING)
+--
+-- Description: Set value of specified key. If the key doesn't exist, append it.
+--
+-----------------------------------------------------------------------
+define method .Set(!key is STRING, !value is STRING)
+    !index = !this.keys.FindFirst(!key)
+    if !index.Set() then
+        !this.values[!index] = !value
+    else
+        !this.keys.Append(!key)
+        !this.values.Append(!value)
+    endif
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .SetDateTime(!key is STRING, !value is DATETIME)
+--
+-- Description: Convert DATETIME object to string and then set it to
+--              value of specified key. If the key doesn't exist, append it.
+--
+-----------------------------------------------------------------------
+define method .SetDateTime(!key is STRING, !value is DATETIME)
+    !this.Set(!key, !value.Year().String() $
+        + '-' + Substring('0' + !value.Month().String(), -2, 2) $
+        + '-' + Substring('0' + !value.Date().String(), -2, 2) $
+        + ' ' + Substring('0' + !value.Hour().String(), -2, 2) $
+        + ':' + Substring('0' + !value.Minute().String(), -2, 2) $
+        + ':' + Substring('0' + !value.Second().String(), -2, 2) $
+    )
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .Remove(!key is STRING)
+--
+-- Description: Remove specified key and its value and return the value as string.
+--
+-----------------------------------------------------------------------
+define method .Remove(!key is STRING) is STRING
+    !index = !this.keys.FindFirst(!key)
+    if !index.Unset() then
+        return error 1 'Undefined key'
+    endif
+    !this.keys.Remove(!index)
+    return !this.values.Remove(!index)
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .Eq(!comp is STRINGMAP)
+--
+-- Description: Return whether two STRINGMAP objects have the same keys and values.
+--
+-----------------------------------------------------------------------
+define method .Eq(!comp is STRINGMAP) is BOOLEAN
+    do !i to !this.Size()
+        !j = !comp.keys.FindFirst(!this.keys[!i])
+        if !j.Unset() or !this.values[!i] ne !comp.values[!j] then
+            return false
+        endif
+    enddo
+    return true
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .Empty()
+--
+-- Description: Return whether this object has no key and value pairs.
+--
+-----------------------------------------------------------------------
+define method .Empty() is BOOLEAN
+    return !this.keys.Empty()
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .Size()
+--
+-- Description: Return number of key and value pairs.
+--
+-----------------------------------------------------------------------
+define method .Size() is REAL
+    return !this.keys.Size()
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .Json()
+--
+-- Description: Return string as JSON format.
+--
+-----------------------------------------------------------------------
+define method .Json() is STRING
+    !json = '{
+'
+    do !i to !this.Size()
+        !json = !json + |    "| $
+            + !this.keys[!i].Replace('\', '\\').Replace(|"|, |\"|) + |": "| $
+            + !this.values[!i].Replace('\', '\\').Replace(|"|, |\"|) + |"|
+        skip if !i eq !this.Size()
+        !json = !json + ',
+'
+    enddo
+    !json = !json + '
+}'
+    return !json
+endmethod

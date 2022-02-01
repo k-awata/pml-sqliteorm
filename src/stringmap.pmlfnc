@@ -1,0 +1,88 @@
+-----------------------------------------------------------------------
+--
+-- Copyright (c) 2022 K.Awata
+--
+-- File:        stringmap.pmlfnc
+-- Type:        Function Definition
+-- Module:      General Application
+-- Description: Convert JSON that has string keys and string values
+--              or number values only to STRINGMAP object.
+--
+-----------------------------------------------------------------------
+
+define function !!stringmap(!json is STRING) is STRINGMAP
+    !record = object STRINGMAP()
+    !inBraces = false
+    !inQuotes = false
+    !key = ''
+    !strbuf = ''
+    !numbuf = ''
+    do !i to !json.Length()
+        !char = !json.Substring(!i, 1)
+        -- Skip until { comming
+        if not !inBraces then
+            if !char eq '{' then
+                !inBraces = true
+            endif
+            skip
+        endif
+        -- Throw error if last character isn't }
+        if !i eq !json.Length() and !char ne '}' then
+            return error 1 'JSON parse error: unexpected end of string'
+        endif
+        -- Process in quotes mode
+        if !inQuotes then
+            if !char eq '\' then
+                if !json.Substring(!i - 1, 1) eq '\' then
+                    !strbuf = !strbuf + '\'
+                endif
+            elseif !char eq |"| then
+                if !json.Substring(!i - 1, 1) eq '\' then
+                    !strbuf = !strbuf + |"|
+                else
+                    !inQuotes = false
+                endif
+            else
+                !strbuf = !strbuf + !char
+            endif
+            skip
+        endif
+        if !char eq ':' then
+            -- Decide key if : comming
+            if !key ne '' or !strbuf eq '' then
+                return error 2 'JSON parse error: unexpected token :'
+            endif
+            !key = !strbuf
+            !strbuf = ''
+        elseif !char eq |"| then
+            -- Enter in quotes mode
+            if !strbuf ne '' or !numbuf ne '' then
+                return error 3 'JSON parse error: unexpected token "'
+            endif
+            !inQuotes = true
+        elseif !char inset(',', '}') then
+            -- Decide value if key is already read and , or } comming
+            if !key eq '' then
+                return error 4 'JSON parse error: unexpected token , or }'
+            endif
+            if !numbuf ne '' then
+                !record.Set(!key, !numbuf)
+            else
+                !record.Set(!key, !strbuf)
+            endif
+            !key = ''
+            !strbuf = ''
+            !numbuf = ''
+        elseif !char.IsDigits() or !char eq '.' then
+            if !key eq '' or !strbuf ne '' then
+                return error 5 'JSON parse error: unexpected number token'
+            endif
+            !numbuf = !numbuf + !char
+        endif
+        break if !char eq '}'
+    enddo
+    if not !inBraces then
+        return error 1 'JSON parse error: unexpected end of string'
+    endif
+    return !record
+endfunction

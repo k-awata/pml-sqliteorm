@@ -1,0 +1,98 @@
+-----------------------------------------------------------------------
+--
+-- Copyright (c) 2022 K.Awata
+--
+-- File:        recordset.pmlobj
+-- Type:        Object Definition
+-- Module:      General Application
+-- Description: Object to store tabular data which has columns and rows.
+--
+-----------------------------------------------------------------------
+
+define object RECORDSET
+    member .columns is ARRAY
+    member .records is ARRAY
+endobject
+
+-----------------------------------------------------------------------
+--
+-- Method:     .recordset(!columns is ARRAY, !records is ARRAY)
+--
+-- Description: Constructor
+--
+-----------------------------------------------------------------------
+define method .recordset(!columns is ARRAY, !records is ARRAY)
+    !this.columns = !columns
+    !this.records = !records
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .Append(!record is STRINGMAP)
+--
+-- Description: Append new record from STRINGMAP object.
+--
+-----------------------------------------------------------------------
+define method .Append(!record is STRINGMAP)
+    -- Set columns if appending first record
+    if !this.columns.Empty() then
+        !this.columns = !record.keys
+        !this.records.Clear()
+    endif
+    !values = object ARRAY()
+    do !key values !this.columns
+        !values.Append(!record.Get(!key))
+        handle any
+            !values.Append('')
+        endhandle
+    enddo
+    !this.records.Append(!values)
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .StringMaps()
+--
+-- Description: Return array of STRINGMAP objects.
+--
+-----------------------------------------------------------------------
+define method .StringMaps() is ARRAY
+    !data = object ARRAY()
+    do !r values !this.records
+        !data.Append(object STRINGMAP(!this.columns, !r))
+    enddo
+    return !data
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .First()
+--
+-- Description: Return STRINGMAP object of first record.
+--
+-----------------------------------------------------------------------
+define method .First() is STRINGMAP
+    return object STRINGMAP(!this.columns, !this.records.First())
+    handle any
+        return object STRINGMAP()
+    endhandle
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .Column(!key is STRING)
+--
+-- Description: Return array of values in specified column.
+--
+-----------------------------------------------------------------------
+define method .Column(!key is STRING) is ARRAY
+    !index = !this.columns.FindFirst(!key)
+    if !index.Unset() then
+        return object ARRAY()
+    endif
+    !result = object ARRAY()
+    do !r values !this.records
+        !result.Append(!r[!index])
+    enddo
+    return !result
+endmethod

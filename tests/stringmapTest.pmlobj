@@ -1,0 +1,54 @@
+define object stringmapTest
+endobject
+
+define method .testGetBoolean(!assert is PmlAssert)
+    !assert.isTrue(!!stringmap('{"foo": 1}').GetBoolean('foo'))
+    !assert.isTrue(!!stringmap('{"foo": "true"}').GetBoolean('foo'))
+    !assert.isFalse(!!stringmap('{"foo": 0}').GetBoolean('foo'))
+    !assert.isFalse(!!stringmap('{"foo": "false"}').GetBoolean('foo'))
+endmethod
+
+define method .testGetDateTime(!assert is PmlAssert)
+    !datetime = !!stringmap('{"foo": "2020-01-23 04:56:42"}').GetDateTime('foo')
+    !assert.equal(2020, !datetime.Year())
+    !assert.equal(1, !datetime.Month())
+    !assert.equal(23, !datetime.Date())
+    !assert.equal(4, !datetime.Hour())
+    !assert.equal(56, !datetime.Minute())
+    !assert.equal(42, !datetime.Second())
+endmethod
+
+define method .testSetDateTime(!assert is PmlAssert)
+    !map = object STRINGMAP()
+    !map.SetDateTime('foo', object DATETIME(2020, 1, 23, 4, 56, 42))
+    !assert.equal('2020-01-23 04:56:42', !map.Get('foo'))
+endmethod
+
+define method .testRemove(!assert is PmlAssert)
+    !map = !!stringmap('{"foo": 1, "bar": 2, "baz": 3}')
+    !assert.isTrue(!map.Has('foo'))
+    !map.Remove('foo')
+    !assert.isFalse(!map.Has('foo'))
+endmethod
+
+define method .testEq(!assert is PmlAssert)
+    !map = !!stringmap('{"foo": 1, "bar": 2, "baz": 3}')
+    !assert.isTrue( $
+        !!stringmap('{"foo": 1, "bar": 2, "baz": 3}') $
+        .Eq(!!stringmap('{"bar": 2, "baz": 3, "foo": 1}')) $
+    )
+    !assert.isFalse( $
+        !!stringmap('{"foo": 1, "bar": 2, "baz": 3}') $
+        .Eq(!!stringmap('{"bar": 1, "baz": 2, "foo": 3}')) $
+    )
+endmethod
+
+define method .testJson(!assert is PmlAssert)
+    !expected = $
+'{
+    "foo": "1",
+    "bar": "2",
+    "baz": "3"
+}'
+    !assert.equal(!expected, !!stringmap(!expected).Json())
+endmethod
