@@ -144,7 +144,7 @@ q var !db.Count('users', !!stringmap('{"gender": "Male"}'))
 |)
 
 -- Raw SQL from a file
-q var !db.Query('%TEMP%\query.sql')
+q var !db.Query(object FILE('%TEMP%\query.sql'))
 ```
 
 ## Tests
