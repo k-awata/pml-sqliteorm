@@ -43,7 +43,10 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Execute(!sql is STRING)
-    !this.writeSQL(!sql)
+    !this.sqlCmd = !sql
+    !this.workIn.Open('OVERWRITE')
+    !this.workIn.WriteRecord(!this.sqlCmd)
+    !this.workIn.Close()
     !this.runSqlite3(!this.workIn)
 endmethod
 
@@ -66,7 +69,10 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Query(!sql is STRING) is RECORDSET
-    !this.writeSQL(!sql)
+    !this.sqlCmd = !sql
+    !this.workIn.Open('OVERWRITE')
+    !this.workIn.WriteRecord(!this.sqlCmd)
+    !this.workIn.Close()
     !this.runSqlite3(!this.workIn)
     return !this.fetchRecordset()
 endmethod
@@ -119,20 +125,6 @@ endmethod
 
 -----------------------------------------------------------------------
 --
--- Method:     .writeSQL(!sql is STRING)
---
--- Description: Write SQL command to working input file.
---
------------------------------------------------------------------------
-define method .writeSQL(!sql is STRING)
-    !this.sqlCmd = !sql
-    !this.workIn.Open('OVERWRITE')
-    !this.workIn.WriteRecord(!this.sqlCmd)
-    !this.workIn.Close()
-endmethod
-
------------------------------------------------------------------------
---
 -- Method:     .fetchRecordset()
 --
 -- Description: Fetch last SQL execution result.
@@ -173,9 +165,7 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Insert(!table is STRING, !record is STRINGMAP)
-    !records = object RECORDSET()
-    !records.Append(!record)
-    !this.Execute('INSERT' + !this.createIntoClause(!table, !records))
+    !this.Execute('INSERT' + !this.createIntoClause(!table, !record))
 endmethod
 
 -----------------------------------------------------------------------
@@ -186,7 +176,12 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Insert(!table is STRING, !records is RECORDSET)
-    !this.Execute('INSERT' + !this.createIntoClause(!table, !records))
+    !this.workIn.Open('OVERWRITE')
+    do !r values !records.StringMaps()
+        !this.workIn.WriteRecord('INSERT' + !this.createIntoClause(!table, !r))
+    enddo
+    !this.workIn.Close()
+    !this.runSqlite3(!this.workIn)
 endmethod
 
 -----------------------------------------------------------------------
@@ -197,9 +192,7 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Replace(!table is STRING, !record is STRINGMAP)
-    !records = object RECORDSET()
-    !records.Append(!record)
-    !this.Execute('REPLACE' + !this.createIntoClause(!table, !records))
+    !this.Execute('REPLACE' + !this.createIntoClause(!table, !record))
 endmethod
 
 -----------------------------------------------------------------------
@@ -210,7 +203,12 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Replace(!table is STRING, !records is RECORDSET)
-    !this.Execute('REPLACE' + !this.createIntoClause(!table, !records))
+    !this.workIn.Open('OVERWRITE')
+    do !r values !records.StringMaps()
+        !this.workIn.WriteRecord('REPLACE' + !this.createIntoClause(!table, !r))
+    enddo
+    !this.workIn.Close()
+    !this.runSqlite3(!this.workIn)
 endmethod
 
 -----------------------------------------------------------------------
@@ -271,44 +269,26 @@ endmethod
 
 -----------------------------------------------------------------------
 --
--- Method:     .createIntoClause(!table is STRING, !data is RECORDSET)
+-- Method:     .createIntoClause(!table is STRING, !data is STRINGMAP)
 --
 -- Description: Return INTO clause string.
 --
 -----------------------------------------------------------------------
-define method .createIntoClause(!table is STRING, !data is RECORDSET) is STRING
-    -- Join key names into one string
-    !colChain = ''
-    do !column values !data.columns
-        if !colChain ne '' then
-            !colChain = !colChain + ','
-        endif
-        !colChain = !colChain + |"| + !column.Replace(|"|, |""|) + |"|
-    enddo
-    -- Join values into one string
-    !valChain = ''
-    do !record values !data.records
-        if !valChain ne '' then
-            !valChain = !valChain + ','
-        endif
-        !valChain = !valChain + '('
-        !chain = ''
-        do !value values !record
-            if !chain ne '' then
-                !chain = !chain + ','
-            endif
-            !chain = !chain + |'| + !value.Replace(|'|, |''|) + |'|
-        enddo
-        !valChain = !valChain + !chain + ')'
-    enddo
-    -- Assemble
+define method .createIntoClause(!table is STRING, !data is STRINGMAP) is STRING
     !into = | INTO "| + !table.Replace(|"|, |""|) + |" |
-    if !colChain eq '' then
-        !into = !into + 'DEFAULT VALUES;'
-    else
-        !into = !into + '(' + !colChain + ') VALUES ' + !valChain + ';'
+    if !data.Empty() then
+        return !into + 'DEFAULT VALUES;'
     endif
-    return !into
+    !colChain = ''
+    !valChain = ''
+    do !i to !data.Size()
+        !colChain = !colChain + |"| + !data.keys[!i].Replace(|"|, |""|) + |"|
+        !valChain = !valChain + |'| + !data.values[!i].Replace(|'|, |''|) + |'|
+        skip if !i eq !data.Size()
+        !colChain = !colChain + ','
+        !valChain = !valChain + ','
+    enddo
+    return !into + '(' + !colChain + ') VALUES (' + !valChain + ');'
 endmethod
 
 -----------------------------------------------------------------------
