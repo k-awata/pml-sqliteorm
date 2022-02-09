@@ -220,6 +220,26 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Json() is STRING
+    !json = '{'
+    do !i to !this.Size()
+        !json = !json + |"| $
+            + !this.keys[!i].Replace('\', '\\').Replace(|"|, |\"|) + |":"| $
+            + !this.values[!i].Replace('\', '\\').Replace(|"|, |\"|) + |"|
+        skip if !i eq !this.Size()
+        !json = !json + ','
+    enddo
+    !json = !json + '}'
+    return !json
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .ExpandedJson()
+--
+-- Description: Return string as expanded JSON format.
+--
+-----------------------------------------------------------------------
+define method .ExpandedJson() is STRING
     !json = '{
 '
     do !i to !this.Size()

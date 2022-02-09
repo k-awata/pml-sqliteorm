@@ -44,11 +44,16 @@ define method .testEq(!assert is PmlAssert)
 endmethod
 
 define method .testJson(!assert is PmlAssert)
+    !expected = '{"foo":"1","bar":"2","baz":"3"}'
+    !assert.equal(!expected, !!stringmap(!expected).Json())
+endmethod
+
+define method .testExpandedJson(!assert is PmlAssert)
     !expected = $
 '{
     "foo": "1",
     "bar": "2",
     "baz": "3"
 }'
-    !assert.equal(!expected, !!stringmap(!expected).Json())
+    !assert.equal(!expected, !!stringmap(!expected).ExpandedJson())
 endmethod
