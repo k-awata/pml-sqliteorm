@@ -124,11 +124,15 @@ q var !db.Count('users', !!stringmap('{"gender": "Male"}'))
 
 `.Execute(!sql is STRING)`
 
-`.Execute(!file is FILE)`
+`.Execute(!sql is ARRAY)`
+
+`.Execute(!sql is FILE)`
 
 `.Query(!sql is STRING) is RECORDSET`
 
-`.Query(!file is FILE) is RECORDSET`
+`.Query(!sql is ARRAY) is RECORDSET`
+
+`.Query(!sql is FILE) is RECORDSET`
 
 ```sql
 -- Raw SQL

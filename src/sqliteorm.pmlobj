@@ -15,7 +15,7 @@ define object SQLITEORM
     member .workOut is FILE
     member .workErr is FILE
     member .exePath is STRING
-    member .sqlCmd  is STRING
+    member .sqlCmd  is ARRAY
     member .sqlErr  is STRING
 endobject
 
@@ -39,53 +39,73 @@ endmethod
 --
 -- Method:     .Execute(!sql is STRING)
 --
--- Description: Execute SQL command.
+-- Description: Execute SQL command from a string.
 --
 -----------------------------------------------------------------------
 define method .Execute(!sql is STRING)
-    !this.sqlCmd = !sql
-    !this.workIn.Open('OVERWRITE')
-    !this.workIn.WriteRecord(!this.sqlCmd)
-    !this.workIn.Close()
+    !this.sqlCmd.Clear()
+    !this.sqlCmd.Append(!sql)
+    !this.Execute(!this.sqlCmd)
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .Execute(!sql is ARRAY)
+--
+-- Description: Execute SQL command from an array.
+--
+-----------------------------------------------------------------------
+define method .Execute(!sql is ARRAY)
+    !this.workIn.WriteFile('OVERWRITE', !sql)
     !this.runSqlite3(!this.workIn)
 endmethod
 
 -----------------------------------------------------------------------
 --
--- Method:     .Execute(!file is FILE)
+-- Method:     .Execute(!sql is FILE)
 --
 -- Description: Execute SQL command from a file.
 --
 -----------------------------------------------------------------------
-define method .Execute(!file is FILE)
-    !this.runSqlite3(!file)
+define method .Execute(!sql is FILE)
+    !this.runSqlite3(!sql)
 endmethod
 
 -----------------------------------------------------------------------
 --
 -- Method:     .Query(!sql is STRING)
 --
--- Description: Execute SQL command and return RECORDSET object.
+-- Description: Execute SQL command from a string and return RECORDSET object.
 --
 -----------------------------------------------------------------------
 define method .Query(!sql is STRING) is RECORDSET
-    !this.sqlCmd = !sql
-    !this.workIn.Open('OVERWRITE')
-    !this.workIn.WriteRecord(!this.sqlCmd)
-    !this.workIn.Close()
+    !this.sqlCmd.Clear()
+    !this.sqlCmd.Append(!sql)
+    return !this.Query(!this.sqlCmd)
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .Query(!sql is ARRAY)
+--
+-- Description: Execute SQL command from an array and return RECORDSET object.
+--
+-----------------------------------------------------------------------
+define method .Query(!sql is ARRAY) is RECORDSET
+    !this.workIn.WriteFile('OVERWRITE', !sql)
     !this.runSqlite3(!this.workIn)
     return !this.fetchRecordset()
 endmethod
 
 -----------------------------------------------------------------------
 --
--- Method:     .Query(!file is FILE)
+-- Method:     .Query(!sql is FILE)
 --
 -- Description: Execute SQL command from a file and return RECORDSET object.
 --
 -----------------------------------------------------------------------
-define method .Query(!file is FILE) is RECORDSET
-    !this.runSqlite3(!file)
+define method .Query(!sql is FILE) is RECORDSET
+    !this.runSqlite3(!sql)
     return !this.fetchRecordset()
 endmethod
 
@@ -114,12 +134,12 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .catchError() is STRING
-    !err = ''
+    !this.sqlErr = ''
     do !buf values !this.workErr.ReadFile()
         skip if !buf.Trim() eq ''
-        !err = !err + ' ' + !buf
+        !this.sqlErr = !this.sqlErr + ' ' + !buf
     enddo
-    !this.sqlErr = !err.Trim()
+    !this.sqlErr = !this.sqlErr.Trim()
     return !this.sqlErr
 endmethod
 
@@ -153,8 +173,13 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Select(!table is STRING, !columns is STRING, !where is STRINGMAP) is RECORDSET
-    return !this.Query('SELECT ' + !columns + | FROM "| + !table.Replace(|"|, |""|) + |"| $
-        + !this.createWhereClause(!where) + ';')
+    !this.sqlCmd.Clear()
+    !this.sqlCmd.Append('SELECT')
+    !this.sqlCmd.Append(!columns)
+    !this.sqlCmd.Append(|FROM "| + !table.Replace(|"|, |""|) + |"|)
+    !this.createWhereClause(!where)
+    !this.sqlCmd.Append(';')
+    return !this.Query(!this.sqlCmd)
 endmethod
 
 -----------------------------------------------------------------------
@@ -165,7 +190,9 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Insert(!table is STRING, !record is STRINGMAP)
-    !this.Execute('INSERT' + !this.createIntoClause(!table, !record))
+    !records = object RECORDSET()
+    !records.Append(!record)
+    !this.Insert(!table, !records)
 endmethod
 
 -----------------------------------------------------------------------
@@ -176,12 +203,11 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Insert(!table is STRING, !records is RECORDSET)
-    !this.workIn.Open('OVERWRITE')
-    do !r values !records.StringMaps()
-        !this.workIn.WriteRecord('INSERT' + !this.createIntoClause(!table, !r))
-    enddo
-    !this.workIn.Close()
-    !this.runSqlite3(!this.workIn)
+    !this.sqlCmd.Clear()
+    !this.sqlCmd.Append('INSERT')
+    !this.createIntoClause(!table, !records)
+    !this.sqlCmd.Append(';')
+    !this.Execute(!this.sqlCmd)
 endmethod
 
 -----------------------------------------------------------------------
@@ -192,7 +218,9 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Replace(!table is STRING, !record is STRINGMAP)
-    !this.Execute('REPLACE' + !this.createIntoClause(!table, !record))
+    !records = object RECORDSET()
+    !records.Append(!record)
+    !this.Replace(!table, !records)
 endmethod
 
 -----------------------------------------------------------------------
@@ -203,12 +231,11 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Replace(!table is STRING, !records is RECORDSET)
-    !this.workIn.Open('OVERWRITE')
-    do !r values !records.StringMaps()
-        !this.workIn.WriteRecord('REPLACE' + !this.createIntoClause(!table, !r))
-    enddo
-    !this.workIn.Close()
-    !this.runSqlite3(!this.workIn)
+    !this.sqlCmd.Clear()
+    !this.sqlCmd.Append('REPLACE')
+    !this.createIntoClause(!table, !records)
+    !this.sqlCmd.Append(';')
+    !this.Execute(!this.sqlCmd)
 endmethod
 
 -----------------------------------------------------------------------
@@ -219,14 +246,20 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Update(!table is STRING, !record is STRINGMAP, !where is STRINGMAP)
-    !chain = |UPDATE "| + !table.Replace(|"|, |""|) + |" SET |
+    !this.sqlCmd.Clear()
+    !this.sqlCmd.Append(|UPDATE "| + !table.Replace(|"|, |""|) + |"|)
+    !this.sqlCmd.Append('SET')
     do !i to !record.Size()
-        !chain = !chain + |"| + !record.keys[!i].Replace(|"|, |""|) $
-            + |" = '| + !record.values[!i].Replace(|'|, |''|) + |'|
+        !this.sqlCmd.Append( $
+            |"| + !record.keys[!i].Replace(|"|, |""|) + |" = | + $
+            |'| + !record.values[!i].Replace(|'|, |''|) + |'| $
+        )
         skip if !i eq !record.Size()
-        !chain = !chain + ','
+        !this.sqlCmd.Append(',')
     enddo
-    !this.Execute(!chain + !this.createWhereClause(!where) + ';')
+    !this.createWhereClause(!where)
+    !this.sqlCmd.Append(';')
+    !this.Execute(!this.sqlCmd)
 endmethod
 
 -----------------------------------------------------------------------
@@ -237,8 +270,11 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Delete(!table is STRING, !where is STRINGMAP)
-    !this.Execute(|DELETE FROM "| + !table.Replace(|"|, |""|) + |"| $
-        + !this.createWhereClause(!where) + ';')
+    !this.sqlCmd.Clear()
+    !this.sqlCmd.Append(|DELETE FROM "| + !table.Replace(|"|, |""|) + |"|)
+    !this.createWhereClause(!where)
+    !this.sqlCmd.Append(';')
+    !this.Execute(!this.sqlCmd)
 endmethod
 
 -----------------------------------------------------------------------
@@ -249,9 +285,13 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Exists(!table is STRING, !where is STRINGMAP) is BOOLEAN
-    !record = !this.Query(|SELECT EXISTS(SELECT * FROM "| + !table.Replace(|"|, |""|) + |"| $
-        + !this.createWhereClause(!where) + ');').First()
-    return !record.GetBoolean(!record.keys.First())
+    !this.sqlCmd.Clear()
+    !this.sqlCmd.Append('SELECT EXISTS(')
+    !this.sqlCmd.Append(|SELECT * FROM "| + !table.Replace(|"|, |""|) + |"|)
+    !this.createWhereClause(!where)
+    !this.sqlCmd.Append(') AS "EXISTS";')
+    !result = !this.Query(!this.sqlCmd).First()
+    return !result.GetBoolean(!result.keys.First())
 endmethod
 
 -----------------------------------------------------------------------
@@ -262,52 +302,67 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Count(!table is STRING, !where is STRINGMAP) is REAL
-    !record = !this.Query(|SELECT COUNT(*) FROM "| + !table.Replace(|"|, |""|) + |"| $
-        + !this.createWhereClause(!where) + ';').First()
-    return !record.GetReal(!record.keys.First())
+    !this.sqlCmd.Clear()
+    !this.sqlCmd.Append(|SELECT COUNT(*) FROM "| + !table.Replace(|"|, |""|) + |"|)
+    !this.createWhereClause(!where)
+    !this.sqlCmd.Append(';')
+    !result = !this.Query(!this.sqlCmd).First()
+    return !result.GetReal(!result.keys.First())
 endmethod
 
 -----------------------------------------------------------------------
 --
--- Method:     .createIntoClause(!table is STRING, !data is STRINGMAP)
+-- Method:     .createIntoClause(!table is STRING, !data is RECORDSET)
 --
--- Description: Return INTO clause string.
+-- Description: Create INTO clause.
 --
 -----------------------------------------------------------------------
-define method .createIntoClause(!table is STRING, !data is STRINGMAP) is STRING
-    !into = | INTO "| + !table.Replace(|"|, |""|) + |" |
-    if !data.Empty() then
-        return !into + 'DEFAULT VALUES;'
+define method .createIntoClause(!table is STRING, !data is RECORDSET)
+    !this.sqlCmd.Append(|INTO "| + !table.Replace(|"|, |""|) + |"|)
+    !colsize = !data.columns.Size()
+    if !colsize eq 0 then
+        !this.sqlCmd.Append('DEFAULT VALUES')
+        return
     endif
-    !colChain = ''
-    !valChain = ''
-    do !i to !data.Size()
-        !colChain = !colChain + |"| + !data.keys[!i].Replace(|"|, |""|) + |"|
-        !valChain = !valChain + |'| + !data.values[!i].Replace(|'|, |''|) + |'|
-        skip if !i eq !data.Size()
-        !colChain = !colChain + ','
-        !valChain = !valChain + ','
+    !this.sqlCmd.Append('(')
+    do !i to !colsize
+        !this.sqlCmd.Append(|"| + !data.columns[!i].Replace(|"|, |""|) + |"|)
+        skip if !i eq !colsize
+        !this.sqlCmd.Append(',')
     enddo
-    return !into + '(' + !colChain + ') VALUES (' + !valChain + ');'
+    !this.sqlCmd.Append(')')
+    !this.sqlCmd.Append('VALUES')
+    do !i to !data.records.Size()
+        !this.sqlCmd.Append('(')
+        do !j to !colsize
+            !this.sqlCmd.Append(|'| + !data.records[!i][!j].Replace(|'|, |''|) + |'|)
+            skip if !j eq !colsize
+            !this.sqlCmd.Append(',')
+        enddo
+        !this.sqlCmd.Append(')')
+        skip if !i eq !data.records.Size()
+        !this.sqlCmd.Append(',')
+    enddo
 endmethod
 
 -----------------------------------------------------------------------
 --
 -- Method:     .createWhereClause(!where is STRINGMAP)
 --
--- Description: Return WHERE clause string.
+-- Description: Create WHERE clause.
 --
 -----------------------------------------------------------------------
-define method .createWhereClause(!where is STRINGMAP) is STRING
+define method .createWhereClause(!where is STRINGMAP)
     if !where.Empty() then
-        return ''
+        return
     endif
-    !chain = ' WHERE '
+    !this.sqlCmd.Append('WHERE')
     do !i to !where.Size()
-        !chain = !chain + |"| + !where.keys[!i].Replace(|"|, |""|) $
-            + |" = '| + !where.values[!i].Replace(|'|, |''|) + |'|
+        !this.sqlCmd.Append( $
+            |"| + !where.keys[!i].Replace(|"|, |""|) + |" = | + $
+            |'| + !where.values[!i].Replace(|'|, |''|) + |'| $
+        )
         skip if !i eq !where.Size()
-        !chain = !chain + ' AND '
+        !this.sqlCmd.Append('AND')
     enddo
-    return !chain
 endmethod
