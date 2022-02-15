@@ -29,9 +29,20 @@ q var !db.dbFile
 
 ### Select data
 
+`.Select(!table is STRING, !columns is STRINGMAP, !where is STRINGMAP) is RECORDSET`
+
 `.Select(!table is STRING, !columns is STRING, !where is STRINGMAP) is RECORDSET`
 
 ```sql
+-- Columns with specified name
+$* SELECT "id" AS 'col1', "name" AS 'col2', "gender" AS 'col3' FROM "users" WHERE "gender" = 'Female';
+!recordset = !db.Select( $
+    'users', $
+    !!stringmap('{"col1": "\"id\"", "col2": "\"name\"", "col3": "\"gender\""}'), $
+    !!stringmap('{"gender": "Female"}') $
+)
+
+-- Columns from raw string
 $* SELECT "id", "name", "gender", "updated_at", "deleted" FROM "users" WHERE "gender" = 'Female';
 !recordset = !db.Select( $
     'users', $

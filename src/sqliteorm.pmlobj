@@ -167,6 +167,28 @@ endmethod
 
 -----------------------------------------------------------------------
 --
+-- Method:     .Select(!table is STRING, !columns is STRINGMAP, !where is STRINGMAP)
+--
+-- Description: Return RECORDSET object of selected data.
+--
+-----------------------------------------------------------------------
+define method .Select(!table is STRING, !columns is STRINGMAP, !where is STRINGMAP) is RECORDSET
+    !this.sqlCmd.Clear()
+    !this.sqlCmd.Append('SELECT')
+    do !i to !columns.Size()
+        !this.sqlCmd.Append(!columns.values[!i])
+        !this.sqlCmd.Append(|AS '| + !columns.keys[!i].Replace(|'|, |''|) + |'|)
+        skip if !i eq !columns.Size()
+        !this.sqlCmd.Append(',')
+    enddo
+    !this.sqlCmd.Append(|FROM "| + !table.Replace(|"|, |""|) + |"|)
+    !this.createWhereClause(!where)
+    !this.sqlCmd.Append(';')
+    return !this.Query(!this.sqlCmd)
+endmethod
+
+-----------------------------------------------------------------------
+--
 -- Method:     .Select(!table is STRING, !columns is STRING, !where is STRINGMAP)
 --
 -- Description: Return RECORDSET object of selected data.
