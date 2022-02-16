@@ -32,7 +32,7 @@ define method .sqliteorm(!dbFile is STRING)
     !this.workIn = object FILE('%temp%\sqliteormin' + !unique)
     !this.workOut = object FILE('%temp%\sqliteormout' + !unique)
     !this.workErr = object FILE('%temp%\sqliteormerr' + !unique)
-    !this.exepath = !!sqlite3path()
+    !this.exePath = !!sqlite3path()
 endmethod
 
 -----------------------------------------------------------------------
@@ -120,7 +120,7 @@ define method .runSqlite3(!input is FILE)
     if not !input.Exists() then
         return error 2 |File $!input does not exist|
     endif
-    syscom |$!this.exepath -header -tabs $!this.dbFile < $!input 1> $!this.workOut 2> $!this.workErr|
+    syscom |$!this.exePath -header -tabs $!this.dbFile < $!input 1> $!this.workOut 2> $!this.workErr|
     if !this.catchError() ne '' then
         return error 1 |SQL execution error "$!this.sqlErr"|
     endif
