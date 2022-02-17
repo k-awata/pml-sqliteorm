@@ -10,13 +10,14 @@
 -----------------------------------------------------------------------
 
 define object SQLITEORM
-    member .dbFile  is FILE
-    member .workIn  is FILE
-    member .workOut is FILE
-    member .workErr is FILE
-    member .exePath is STRING
-    member .sqlCmd  is ARRAY
-    member .sqlErr  is STRING
+    member .dbFile      is FILE
+    member .workIn      is FILE
+    member .workOut     is FILE
+    member .workErr     is FILE
+    member .exePath     is STRING
+    member .transaction is BOOLEAN
+    member .sqlCmd      is ARRAY
+    member .sqlErr      is STRING
 endobject
 
 -----------------------------------------------------------------------
@@ -33,6 +34,7 @@ define method .sqliteorm(!dbFile is STRING)
     !this.workOut = object FILE('%temp%\sqliteormout' + !unique)
     !this.workErr = object FILE('%temp%\sqliteormerr' + !unique)
     !this.exePath = !!sqlite3path()
+    !this.transaction = false
 endmethod
 
 -----------------------------------------------------------------------
@@ -43,7 +45,7 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Execute(!sql is STRING)
-    !this.sqlCmd.Clear()
+    !this.clearSQL()
     !this.sqlCmd.Append(!sql)
     !this.Execute(!this.sqlCmd)
 endmethod
@@ -56,6 +58,9 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Execute(!sql is ARRAY)
+    if !this.transaction then
+        return
+    endif
     !this.workIn.WriteFile('OVERWRITE', !sql)
     !this.runSqlite3(!this.workIn)
 endmethod
@@ -79,7 +84,8 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Query(!sql is STRING) is RECORDSET
-    !this.sqlCmd.Clear()
+    !this.checkTransaction()
+    !this.clearSQL()
     !this.sqlCmd.Append(!sql)
     return !this.Query(!this.sqlCmd)
 endmethod
@@ -167,13 +173,71 @@ endmethod
 
 -----------------------------------------------------------------------
 --
+-- Method:     .checkTransaction()
+--
+-- Description: Throw an error if transaction is in progress.
+--
+-----------------------------------------------------------------------
+define method .checkTransaction()
+    if !this.transaction then
+        return error 1 'This method cannot be called while transaction is in progress'
+    endif
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .clearSQL()
+--
+-- Description: Clear SQL commands.
+--
+-----------------------------------------------------------------------
+define method .clearSQL()
+    if !this.transaction then
+        return
+    endif
+    !this.sqlCmd.Clear()
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .BeginTransaction()
+--
+-- Description: Begin a transaction.
+--
+-----------------------------------------------------------------------
+define method .BeginTransaction()
+    !this.checkTransaction()
+    !this.clearSQL()
+    !this.sqlCmd.Append('BEGIN TRANSACTION;')
+    !this.transaction = true
+endmethod
+
+-----------------------------------------------------------------------
+--
+-- Method:     .Commit()
+--
+-- Description: Commit the transaction.
+--
+-----------------------------------------------------------------------
+define method .Commit()
+    if not !this.transaction then
+        return error 1 'Transaction has not begun'
+    endif
+    !this.sqlCmd.Append('COMMIT;')
+    !this.transaction = false
+    !this.Execute(!this.sqlCmd)
+endmethod
+
+-----------------------------------------------------------------------
+--
 -- Method:     .Select(!table is STRING, !columns is STRINGMAP, !where is STRINGMAP)
 --
 -- Description: Return RECORDSET object of selected data.
 --
 -----------------------------------------------------------------------
 define method .Select(!table is STRING, !columns is STRINGMAP, !where is STRINGMAP) is RECORDSET
-    !this.sqlCmd.Clear()
+    !this.checkTransaction()
+    !this.clearSQL()
     !this.sqlCmd.Append('SELECT')
     do !i to !columns.Size()
         !this.sqlCmd.Append(!columns.values[!i])
@@ -195,7 +259,8 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Select(!table is STRING, !columns is STRING, !where is STRINGMAP) is RECORDSET
-    !this.sqlCmd.Clear()
+    !this.checkTransaction()
+    !this.clearSQL()
     !this.sqlCmd.Append('SELECT')
     !this.sqlCmd.Append(!columns)
     !this.sqlCmd.Append(|FROM "| + !table.Replace(|"|, |""|) + |"|)
@@ -225,7 +290,7 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Insert(!table is STRING, !records is RECORDSET)
-    !this.sqlCmd.Clear()
+    !this.clearSQL()
     !this.sqlCmd.Append('INSERT')
     !this.createIntoClause(!table, !records)
     !this.sqlCmd.Append(';')
@@ -253,7 +318,7 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Replace(!table is STRING, !records is RECORDSET)
-    !this.sqlCmd.Clear()
+    !this.clearSQL()
     !this.sqlCmd.Append('REPLACE')
     !this.createIntoClause(!table, !records)
     !this.sqlCmd.Append(';')
@@ -268,7 +333,7 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Update(!table is STRING, !record is STRINGMAP, !where is STRINGMAP)
-    !this.sqlCmd.Clear()
+    !this.clearSQL()
     !this.sqlCmd.Append(|UPDATE "| + !table.Replace(|"|, |""|) + |"|)
     !this.sqlCmd.Append('SET')
     do !i to !record.Size()
@@ -292,7 +357,7 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Delete(!table is STRING, !where is STRINGMAP)
-    !this.sqlCmd.Clear()
+    !this.clearSQL()
     !this.sqlCmd.Append(|DELETE FROM "| + !table.Replace(|"|, |""|) + |"|)
     !this.createWhereClause(!where)
     !this.sqlCmd.Append(';')
@@ -307,7 +372,8 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Exists(!table is STRING, !where is STRINGMAP) is BOOLEAN
-    !this.sqlCmd.Clear()
+    !this.checkTransaction()
+    !this.clearSQL()
     !this.sqlCmd.Append('SELECT EXISTS(')
     !this.sqlCmd.Append(|SELECT * FROM "| + !table.Replace(|"|, |""|) + |"|)
     !this.createWhereClause(!where)
@@ -324,7 +390,8 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .Count(!table is STRING, !where is STRINGMAP) is REAL
-    !this.sqlCmd.Clear()
+    !this.checkTransaction()
+    !this.clearSQL()
     !this.sqlCmd.Append(|SELECT COUNT(*) FROM "| + !table.Replace(|"|, |""|) + |"|)
     !this.createWhereClause(!where)
     !this.sqlCmd.Append(';')
