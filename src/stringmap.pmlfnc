@@ -63,6 +63,7 @@ define function !!stringmap(!json is STRING) is STRINGMAP
         elseif !char inset(',', '}') then
             -- Decide value if key is already read and , or } comming
             if !key eq '' then
+                break if !char eq '}'
                 return error 4 'JSON parse error: unexpected token , or }'
             endif
             if !numbuf ne '' then
