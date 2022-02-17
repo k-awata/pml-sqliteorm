@@ -72,10 +72,11 @@ endmethod
 --
 -----------------------------------------------------------------------
 define method .First() is STRINGMAP
-    return object STRINGMAP(!this.columns, !this.records.First())
+    !result = object STRINGMAP(!this.columns, !this.records.First())
     handle any
         return object STRINGMAP()
     endhandle
+    return !result
 endmethod
 
 -----------------------------------------------------------------------
