@@ -214,6 +214,20 @@ endmethod
 
 -----------------------------------------------------------------------
 --
+-- Method:     .Rollback()
+--
+-- Description: Rollback the transaction.
+--
+-----------------------------------------------------------------------
+define method .Rollback()
+    if not !this.transaction then
+        return error 1 'Transaction has not begun'
+    endif
+    !this.transaction = false
+endmethod
+
+-----------------------------------------------------------------------
+--
 -- Method:     .Commit()
 --
 -- Description: Commit the transaction.
