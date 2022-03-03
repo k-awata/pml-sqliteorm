@@ -2,7 +2,7 @@
 
 ORM between PML and SQLite3 database via sqlite3.exe CLI
 
-## Prerequisites
+## Requirements
 
 You require to put [sqlite3.exe](https://sqlite.org/index.html) in any directory defined by the `PATH` environment variable. If it is hard to prepare it for everyone who uses PML macros, you can put `sqlite3.exe` to the `bin` directory to use it instead.
 
@@ -162,6 +162,30 @@ q var !db.Count('users', !!stringmap('{"gender": "Male"}'))
 q var !db.Query(object FILE('%TEMP%\query.sql'))
 ```
 
+### Transaction
+
+`.BeginTransaction()`
+
+`.Commit()`
+
+`.Rollback()`
+
+```sql
+$* BEGIN TRANSACTION;
+$* INSERT INTO "users" ("id", "name", "gender") VALUES ('1', 'Alice', 'Female');
+$* INSERT INTO "articles" ("id", "user_id", "contents") VALUES ('1', '1', 'foobar');
+$* COMMIT;
+
+!db.BeginTransaction()
+!db.Insert('users', !!stringmap('{"id": 1, "name": "Alice", "gender": "Female"}'))
+!db.Insert('articles', !!stringmap('{"id": 1, "user_id": 1, "contents": "foobar"}'))
+!db.Commit()
+```
+
 ## Tests
 
-To run the test cases, use [PML Unit](https://github.com/PoByBolek/PmlUnit) on Everything3D 2.1.
+The test cases use [PML Unit](https://github.com/PoByBolek/PmlUnit) on Everything3D 2.1.
+
+## License
+
+[MIT License](LICENSE)
