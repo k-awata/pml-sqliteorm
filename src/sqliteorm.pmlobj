@@ -1,14 +1,24 @@
------------------------------------------------------------------------
---
 -- Copyright (c) 2022 K.Awata
---
--- File:        sqliteorm.pmlobj
--- Type:        Object Definition
--- Module:      General Application
--- Description: ORM between PML and SQLite3 database via sqlite3.exe CLI
---
------------------------------------------------------------------------
+-- 
+-- Permission is hereby granted, free of charge, to any person obtaining a copy
+-- of this software and associated documentation files (the "Software"), to deal
+-- in the Software without restriction, including without limitation the rights
+-- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+-- copies of the Software, and to permit persons to whom the Software is
+-- furnished to do so, subject to the following conditions:
+-- 
+-- The above copyright notice and this permission notice shall be included in all
+-- copies or substantial portions of the Software.
+-- 
+-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+-- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+-- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+-- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+-- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+-- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+-- SOFTWARE.
 
+-- Object SQLITEORM is ORM between PML and SQLite3 database via sqlite3.exe CLI.
 define object SQLITEORM
     member .dbFile      is FILE
     member .workIn      is FILE
@@ -20,13 +30,7 @@ define object SQLITEORM
     member .sqlErr      is STRING
 endobject
 
------------------------------------------------------------------------
---
--- Method:     .sqliteorm(!dbFile is STRING)
---
--- Description: Constructor
---
------------------------------------------------------------------------
+-- Constructor sets path of a sqlite3 DB file.
 define method .sqliteorm(!dbFile is STRING)
     !this.dbFile = object FILE(!dbFile)
     var !unique unique
@@ -37,26 +41,14 @@ define method .sqliteorm(!dbFile is STRING)
     !this.transaction = false
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Execute(!sql is STRING)
---
--- Description: Execute SQL command from a string.
---
------------------------------------------------------------------------
+-- Execute executes SQL command from a STRING.
 define method .Execute(!sql is STRING)
     !this.clearSQL()
     !this.sqlCmd.Append(!sql)
     !this.Execute(!this.sqlCmd)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Execute(!sql is ARRAY)
---
--- Description: Execute SQL command from an array.
---
------------------------------------------------------------------------
+-- Execute executes SQL command from a ARRAY.
 define method .Execute(!sql is ARRAY)
     if !this.transaction then
         return
@@ -65,24 +57,12 @@ define method .Execute(!sql is ARRAY)
     !this.runSqlite3(!this.workIn)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Execute(!sql is FILE)
---
--- Description: Execute SQL command from a file.
---
------------------------------------------------------------------------
+-- Execute executes SQL command from a FILE.
 define method .Execute(!sql is FILE)
     !this.runSqlite3(!sql)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Query(!sql is STRING)
---
--- Description: Execute SQL command from a string and return RECORDSET object.
---
------------------------------------------------------------------------
+-- Query executes SQL command from a STRING and returns RECORDSET.
 define method .Query(!sql is STRING) is RECORDSET
     !this.checkTransaction()
     !this.clearSQL()
@@ -90,38 +70,20 @@ define method .Query(!sql is STRING) is RECORDSET
     return !this.Query(!this.sqlCmd)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Query(!sql is ARRAY)
---
--- Description: Execute SQL command from an array and return RECORDSET object.
---
------------------------------------------------------------------------
+-- Query executes SQL command from a ARRAY and returns RECORDSET.
 define method .Query(!sql is ARRAY) is RECORDSET
     !this.workIn.WriteFile('OVERWRITE', !sql)
     !this.runSqlite3(!this.workIn)
     return !this.fetchRecordset()
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Query(!sql is FILE)
---
--- Description: Execute SQL command from a file and return RECORDSET object.
---
------------------------------------------------------------------------
+-- Query executes SQL command from a FILE and returns RECORDSET.
 define method .Query(!sql is FILE) is RECORDSET
     !this.runSqlite3(!sql)
     return !this.fetchRecordset()
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .runSqlite3(!input is FILE)
---
--- Description: Run SQLite3 command in the shell.
---
------------------------------------------------------------------------
+-- runSqlite3 runs SQLite3 command in the system command line.
 define method .runSqlite3(!input is FILE)
     if not !input.Exists() then
         return error 2 |File $!input does not exist|
@@ -132,13 +94,7 @@ define method .runSqlite3(!input is FILE)
     endif
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .catchError()
---
--- Description: Catch error message for last SQL execution.
---
------------------------------------------------------------------------
+-- catchError catches an error message for the last SQL execution.
 define method .catchError() is STRING
     !this.sqlErr = ''
     do !buf values !this.workErr.ReadFile()
@@ -149,13 +105,7 @@ define method .catchError() is STRING
     return !this.sqlErr
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .fetchRecordset()
---
--- Description: Fetch last SQL execution result.
---
------------------------------------------------------------------------
+-- fetchRecordset fetches the last SQL execution result.
 define method .fetchRecordset() is RECORDSET
     !result = !this.workOut.ReadFile()
     !columns = !result.RemoveFirst().Split('	')
@@ -171,26 +121,14 @@ define method .fetchRecordset() is RECORDSET
     return object RECORDSET(!columns, !records)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .checkTransaction()
---
--- Description: Throw an error if transaction is in progress.
---
------------------------------------------------------------------------
+-- checkTransaction throws an error if the transaction is in progress.
 define method .checkTransaction()
     if !this.transaction then
         return error 1 'This method cannot be called while transaction is in progress'
     endif
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .clearSQL()
---
--- Description: Clear SQL commands.
---
------------------------------------------------------------------------
+-- clearSQL clears SQL commands in not progress.
 define method .clearSQL()
     if !this.transaction then
         return
@@ -198,13 +136,7 @@ define method .clearSQL()
     !this.sqlCmd.Clear()
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .BeginTransaction()
---
--- Description: Begin a transaction.
---
------------------------------------------------------------------------
+-- BeginTransaction begins a transaction.
 define method .BeginTransaction()
     !this.checkTransaction()
     !this.clearSQL()
@@ -212,13 +144,7 @@ define method .BeginTransaction()
     !this.transaction = true
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Rollback()
---
--- Description: Rollback the transaction.
---
------------------------------------------------------------------------
+-- Rollback rollbacks a transaction.
 define method .Rollback()
     if not !this.transaction then
         return error 1 'Transaction has not begun'
@@ -226,13 +152,7 @@ define method .Rollback()
     !this.transaction = false
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Commit()
---
--- Description: Commit the transaction.
---
------------------------------------------------------------------------
+-- Commit commits a transaction.
 define method .Commit()
     if not !this.transaction then
         return error 1 'Transaction has not begun'
@@ -242,13 +162,7 @@ define method .Commit()
     !this.Execute(!this.sqlCmd)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Select(!table is STRING, !columns is STRINGMAP, !where is STRINGMAP)
---
--- Description: Return RECORDSET object of selected data.
---
------------------------------------------------------------------------
+-- Select returns RECORDSET of selected data.
 define method .Select(!table is STRING, !columns is STRINGMAP, !where is STRINGMAP) is RECORDSET
     !this.checkTransaction()
     !this.clearSQL()
@@ -265,13 +179,7 @@ define method .Select(!table is STRING, !columns is STRINGMAP, !where is STRINGM
     return !this.Query(!this.sqlCmd)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Select(!table is STRING, !columns is STRING, !where is STRINGMAP)
---
--- Description: Return RECORDSET object of selected data.
---
------------------------------------------------------------------------
+-- Select returns RECORDSET of selected data.
 define method .Select(!table is STRING, !columns is STRING, !where is STRINGMAP) is RECORDSET
     !this.checkTransaction()
     !this.clearSQL()
@@ -283,26 +191,14 @@ define method .Select(!table is STRING, !columns is STRING, !where is STRINGMAP)
     return !this.Query(!this.sqlCmd)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Insert(!table is STRING, !record is STRINGMAP)
---
--- Description: Insert a new record into a table.
---
------------------------------------------------------------------------
+-- Insert inserts a new record into a table.
 define method .Insert(!table is STRING, !record is STRINGMAP)
     !records = object RECORDSET()
     !records.Append(!record)
     !this.Insert(!table, !records)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Insert(!table is STRING, !records is RECORDSET)
---
--- Description: Insert new records into a table.
---
------------------------------------------------------------------------
+-- Insert inserts new records into a table.
 define method .Insert(!table is STRING, !records is RECORDSET)
     !this.clearSQL()
     !this.sqlCmd.Append('INSERT')
@@ -311,26 +207,14 @@ define method .Insert(!table is STRING, !records is RECORDSET)
     !this.Execute(!this.sqlCmd)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Replace(!table is STRING, !record is STRINGMAP)
---
--- Description: Replace an existing record with new data.
---
------------------------------------------------------------------------
+-- Replace replaces an existing record with new data.
 define method .Replace(!table is STRING, !record is STRINGMAP)
     !records = object RECORDSET()
     !records.Append(!record)
     !this.Replace(!table, !records)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Replace(!table is STRING, !records is RECORDSET)
---
--- Description: Replace existing records with new data.
---
------------------------------------------------------------------------
+-- Replace replaces existing records with new data.
 define method .Replace(!table is STRING, !records is RECORDSET)
     !this.clearSQL()
     !this.sqlCmd.Append('REPLACE')
@@ -339,13 +223,7 @@ define method .Replace(!table is STRING, !records is RECORDSET)
     !this.Execute(!this.sqlCmd)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Update(!table is STRING, !record is STRINGMAP, !where is STRINGMAP)
---
--- Description: Update existing records from a table.
---
------------------------------------------------------------------------
+-- Update updates existing records from a table.
 define method .Update(!table is STRING, !record is STRINGMAP, !where is STRINGMAP)
     !this.clearSQL()
     !this.sqlCmd.Append(|UPDATE "| + !table.Replace(|"|, |""|) + |"|)
@@ -363,13 +241,7 @@ define method .Update(!table is STRING, !record is STRINGMAP, !where is STRINGMA
     !this.Execute(!this.sqlCmd)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Delete(!table is STRING, !where is STRINGMAP)
---
--- Description: Delete records from a table.
---
------------------------------------------------------------------------
+-- Delete deletes records from a table.
 define method .Delete(!table is STRING, !where is STRINGMAP)
     !this.clearSQL()
     !this.sqlCmd.Append(|DELETE FROM "| + !table.Replace(|"|, |""|) + |"|)
@@ -378,13 +250,7 @@ define method .Delete(!table is STRING, !where is STRINGMAP)
     !this.Execute(!this.sqlCmd)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Exists(!table is STRING, !where is STRINGMAP)
---
--- Description: Return whether the specified data exists in a table.
---
------------------------------------------------------------------------
+-- Exists returns whether the specified data exists in a table.
 define method .Exists(!table is STRING, !where is STRINGMAP) is BOOLEAN
     !this.checkTransaction()
     !this.clearSQL()
@@ -396,13 +262,7 @@ define method .Exists(!table is STRING, !where is STRINGMAP) is BOOLEAN
     return !result.GetBoolean(!result.keys.First())
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Count(!table is STRING, !where is STRINGMAP)
---
--- Description: Return number of records.
---
------------------------------------------------------------------------
+-- Count returns the number of records.
 define method .Count(!table is STRING, !where is STRINGMAP) is REAL
     !this.checkTransaction()
     !this.clearSQL()
@@ -413,13 +273,7 @@ define method .Count(!table is STRING, !where is STRINGMAP) is REAL
     return !result.GetReal(!result.keys.First())
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .createIntoClause(!table is STRING, !data is RECORDSET)
---
--- Description: Create INTO clause.
---
------------------------------------------------------------------------
+-- createIntoClause creates INTO clause.
 define method .createIntoClause(!table is STRING, !data is RECORDSET)
     !this.sqlCmd.Append(|INTO "| + !table.Replace(|"|, |""|) + |"|)
     !colsize = !data.columns.Size()
@@ -448,13 +302,7 @@ define method .createIntoClause(!table is STRING, !data is RECORDSET)
     enddo
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .createWhereClause(!where is STRINGMAP)
---
--- Description: Create WHERE clause.
---
------------------------------------------------------------------------
+-- createWhereClause creates WHERE clause.
 define method .createWhereClause(!where is STRINGMAP)
     if !where.Empty() then
         return

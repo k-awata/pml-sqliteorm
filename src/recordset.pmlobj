@@ -1,38 +1,36 @@
------------------------------------------------------------------------
---
 -- Copyright (c) 2022 K.Awata
---
--- File:        recordset.pmlobj
--- Type:        Object Definition
--- Module:      General Application
--- Description: Object to store tabular data which has columns and rows.
---
------------------------------------------------------------------------
+-- 
+-- Permission is hereby granted, free of charge, to any person obtaining a copy
+-- of this software and associated documentation files (the "Software"), to deal
+-- in the Software without restriction, including without limitation the rights
+-- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+-- copies of the Software, and to permit persons to whom the Software is
+-- furnished to do so, subject to the following conditions:
+-- 
+-- The above copyright notice and this permission notice shall be included in all
+-- copies or substantial portions of the Software.
+-- 
+-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+-- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+-- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+-- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+-- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+-- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+-- SOFTWARE.
 
+-- Object RECORDSET stores tabular data which has columns and rows.
 define object RECORDSET
     member .columns is ARRAY
     member .records is ARRAY
 endobject
 
------------------------------------------------------------------------
---
--- Method:     .recordset(!columns is ARRAY, !records is ARRAY)
---
--- Description: Constructor
---
------------------------------------------------------------------------
+-- Constructor sets column names and records data.
 define method .recordset(!columns is ARRAY, !records is ARRAY)
     !this.columns = !columns
     !this.records = !records
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Append(!record is STRINGMAP)
---
--- Description: Append new record from STRINGMAP object.
---
------------------------------------------------------------------------
+-- Append appends new record from a STRINGMAP.
 define method .Append(!record is STRINGMAP)
     -- Set columns if appending first record
     if !this.columns.Empty() then
@@ -49,13 +47,7 @@ define method .Append(!record is STRINGMAP)
     !this.records.Append(!values)
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .StringMaps()
---
--- Description: Return array of STRINGMAP objects.
---
------------------------------------------------------------------------
+-- StringMaps returns an array of STRINGMAP.
 define method .StringMaps() is ARRAY
     !data = object ARRAY()
     do !r values !this.records
@@ -64,13 +56,7 @@ define method .StringMaps() is ARRAY
     return !data
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .First()
---
--- Description: Return STRINGMAP object of first record.
---
------------------------------------------------------------------------
+-- First returns STRINGMAP of the first record.
 define method .First() is STRINGMAP
     !result = object STRINGMAP(!this.columns, !this.records.First())
     handle any
@@ -79,13 +65,7 @@ define method .First() is STRINGMAP
     return !result
 endmethod
 
------------------------------------------------------------------------
---
--- Method:     .Column(!key is STRING)
---
--- Description: Return array of values in specified column.
---
------------------------------------------------------------------------
+-- Column returns an array of values in a specified column.
 define method .Column(!key is STRING) is ARRAY
     !index = !this.columns.FindFirst(!key)
     if !index.Unset() then
