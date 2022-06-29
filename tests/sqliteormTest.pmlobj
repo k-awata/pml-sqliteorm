@@ -16,6 +16,7 @@ define method .setup()
 endmethod
 
 define method .testInsert(!assert is PmlAssert)
+    -- run sqlite: 2 times
     !this.db.BeginTransaction()
     !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "bar", "check": "pass"}'))
     !this.db.Insert('mock', !!stringmap('{"id": 2, "match": "bar", "check": "pass"}'))
@@ -27,9 +28,12 @@ define method .testInsert(!assert is PmlAssert)
 endmethod
 
 define method .testGetColumnArray(!assert is PmlAssert)
+    -- run sqlite: 2 times
+    !this.db.BeginTransaction()
     !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "bar", "check": "pass"}'))
     !this.db.Insert('mock', !!stringmap('{"id": 2, "match": "bar", "check": "pass"}'))
     !this.db.Insert('mock', !!stringmap('{"id": 3, "match": "bar", "check": "pass"}'))
+    !this.db.Commit()
     !sel = !this.db.Select( $
         'mock', $
         !!stringmap('{"col1": "\"id\"", "col2": "\"match\"", "col3": "\"check\""}'), $
@@ -41,6 +45,7 @@ define method .testGetColumnArray(!assert is PmlAssert)
 endmethod
 
 define method .testSQLToFail(!assert is PmlAssert)
+    -- run sqlite: 2 times
     !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "foo"}'))
     !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "foo"}'))
     handle any
@@ -51,6 +56,7 @@ define method .testSQLToFail(!assert is PmlAssert)
 endmethod
 
 define method .testReplace(!assert is PmlAssert)
+    -- run sqlite: 2 times
     !this.db.BeginTransaction()
     !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "foo"}'))
     !this.db.Replace('mock', !!stringmap('{"id": 1, "match": "bar", "check": "pass"}'))
@@ -62,6 +68,7 @@ define method .testReplace(!assert is PmlAssert)
 endmethod
 
 define method .testUpdate(!assert is PmlAssert)
+    -- run sqlite: 2 times
     !this.db.BeginTransaction()
     !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "foo", "check": "pass"}'))
     !this.db.Insert('mock', !!stringmap('{"id": 2, "match": "bar"}'))
@@ -74,6 +81,7 @@ define method .testUpdate(!assert is PmlAssert)
 endmethod
 
 define method .testDelete(!assert is PmlAssert)
+    -- run sqlite: 2 times
     !this.db.BeginTransaction()
     !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "foo", "check": "to be del"}'))
     !this.db.Insert('mock', !!stringmap('{"id": 2, "match": "bar", "check": "pass"}'))
@@ -85,12 +93,14 @@ define method .testDelete(!assert is PmlAssert)
 endmethod
 
 define method .testExists(!assert is PmlAssert)
+    -- run sqlite: 3 times
     !this.db.Insert('mock', !!stringmap('{"id": 1, "match": "bar"}'))
     !assert.isTrue(!this.db.Exists('mock', !!stringmap('{"match": "bar"}')))
     !assert.isFalse(!this.db.Exists('mock', !!stringmap('{"match": "foo"}')))
 endmethod
 
 define method .testCount(!assert is PmlAssert)
+    -- run sqlite: 3 times
     !recordset = object RECORDSET()
     !recordset.Append(!!stringmap('{"id": 1, "match": "foo"}'))
     !recordset.Append(!!stringmap('{"id": 2, "match": "foo"}'))
