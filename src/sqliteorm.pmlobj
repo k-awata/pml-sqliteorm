@@ -21,10 +21,8 @@
 -- Object SQLITEORM is ORM between PML and SQLite3 database via sqlite3.exe CLI.
 define object SQLITEORM
     member .dbFile      is FILE
-    member .workIn      is FILE
-    member .workOut     is FILE
-    member .workErr     is FILE
-    member .exePath     is STRING
+    member .cmd         is SYSCOMMANDER
+    member .binPath     is STRING
     member .transaction is BOOLEAN
     member .sqlCmd      is ARRAY
     member .sqlErr      is STRING
@@ -33,12 +31,10 @@ endobject
 -- Constructor sets path of a sqlite3 DB file.
 define method .sqliteorm(!dbFile is STRING)
     !this.dbFile = object FILE(!dbFile)
-    var !unique unique
-    !this.workIn = object FILE('%temp%\sqliteormin' + !unique)
-    !this.workOut = object FILE('%temp%\sqliteormout' + !unique)
-    !this.workErr = object FILE('%temp%\sqliteormerr' + !unique)
-    !this.exePath = !!sqlite3path()
+    !this.cmd = object SYSCOMMANDER('%temp%\sqliteorm')
+    !this.binPath = !this.cmd.FindPath('sqlite3')
     !this.transaction = false
+    !this.sqlErr = ''
 endmethod
 
 -- Execute executes SQL command from a STRING.
@@ -53,13 +49,14 @@ define method .Execute(!sql is ARRAY)
     if !this.transaction then
         return
     endif
-    !this.workIn.WriteFile('OVERWRITE', !sql)
-    !this.runSqlite3(!this.workIn)
+    !this.cmd.WriteStdin(!sql)
+    !this.runSqlite3()
 endmethod
 
 -- Execute executes SQL command from a FILE.
 define method .Execute(!sql is FILE)
-    !this.runSqlite3(!sql)
+    !this.cmd.WriteStdin(!sql)
+    !this.runSqlite3()
 endmethod
 
 -- Query executes SQL command from a STRING and returns RECORDSET.
@@ -72,42 +69,33 @@ endmethod
 
 -- Query executes SQL command from a ARRAY and returns RECORDSET.
 define method .Query(!sql is ARRAY) is RECORDSET
-    !this.workIn.WriteFile('OVERWRITE', !sql)
-    !this.runSqlite3(!this.workIn)
+    !this.cmd.WriteStdin(!sql)
+    !this.runSqlite3()
     return !this.fetchRecordset()
 endmethod
 
 -- Query executes SQL command from a FILE and returns RECORDSET.
 define method .Query(!sql is FILE) is RECORDSET
-    !this.runSqlite3(!sql)
+    !this.cmd.WriteStdin(!sql)
+    !this.runSqlite3()
     return !this.fetchRecordset()
 endmethod
 
 -- runSqlite3 runs SQLite3 command in the system command line.
-define method .runSqlite3(!input is FILE)
-    if not !input.Exists() then
-        return error 2 |File $!input does not exist|
-    endif
-    syscom |$!this.exePath -header -tabs $!this.dbFile < $!input 1> $!this.workOut 2> $!this.workErr|
-    if !this.catchError() ne '' then
+define method .runSqlite3()
+    !this.cmd.Run(|$!this.binPath -header -tabs "$!this.dbFile"|)
+    !this.sqlErr = !this.cmd.ReadStderr().Join(' ').Trim()
+    handle any
+        !this.sqlErr = ''
+    endhandle
+    if !this.sqlErr ne '' then
         return error 1 |SQL execution error "$!this.sqlErr"|
     endif
 endmethod
 
--- catchError catches an error message for the last SQL execution.
-define method .catchError() is STRING
-    !this.sqlErr = ''
-    do !buf values !this.workErr.ReadFile()
-        skip if !buf.Trim() eq ''
-        !this.sqlErr = !this.sqlErr + ' ' + !buf
-    enddo
-    !this.sqlErr = !this.sqlErr.Trim()
-    return !this.sqlErr
-endmethod
-
 -- fetchRecordset fetches the last SQL execution result.
 define method .fetchRecordset() is RECORDSET
-    !result = !this.workOut.ReadFile()
+    !result = !this.cmd.ReadStdout()
     !columns = !result.RemoveFirst().Split('	')
     handle any
         return object RECORDSET()

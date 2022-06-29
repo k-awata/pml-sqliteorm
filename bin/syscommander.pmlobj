@@ -1,0 +1,97 @@
+-- Copyright (c) 2022 K.Awata
+-- 
+-- Permission is hereby granted, free of charge, to any person obtaining a copy
+-- of this software and associated documentation files (the "Software"), to deal
+-- in the Software without restriction, including without limitation the rights
+-- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+-- copies of the Software, and to permit persons to whom the Software is
+-- furnished to do so, subject to the following conditions:
+-- 
+-- The above copyright notice and this permission notice shall be included in all
+-- copies or substantial portions of the Software.
+-- 
+-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+-- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+-- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+-- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+-- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+-- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+-- SOFTWARE.
+
+-- Object SYSCOMMANDER communicates with system command line. 
+define object SYSCOMMANDER
+    member .stdin is FILE
+    member .stdout is FILE
+    member .stderr is FILE
+    member .lastcmd is STRING
+endobject
+
+-- Constructor sets stdio redirections with directory prefix.
+define method .syscommander(!pre is STRING)
+    var !uniq uniq
+    !this.stdin = object FILE(!pre + 'in' + !uniq)
+    !this.stdout = object FILE(!pre + 'out' + !uniq)
+    !this.stderr = object FILE(!pre + 'err' + !uniq)
+    !this.lastcmd = ''
+    !this.stdin.WriteFile('OVERWRITE', object ARRAY())
+    !this.stdout.WriteFile('OVERWRITE', object ARRAY())
+    !this.stderr.WriteFile('OVERWRITE', object ARRAY())
+endmethod
+
+-- FindPath returns the path of the specified command.
+define method .FindPath(!cmd is STRING) is STRING
+    !objname = 'syscommander.pmlobj'
+    !base = !!PML.GetPathName(!objname).Replace('/', '\').Replace(!objname, !cmd, -1, 1)
+    var !pathext evar 'pathext'
+    !pathext = ';' + !pathext.LowCase()
+    do !ext values !pathext.Split(';')
+        !file = object FILE(!base + !ext)
+        if !file.Exists() then
+            return |"| + !file.Name() + |"|
+        endif
+    enddo
+    return !cmd
+endmethod
+
+-- Run runs a command
+define method .Run(!cmd is STRING)
+    !this.stdout.WriteFile('OVERWRITE', object ARRAY())
+    !this.stderr.WriteFile('OVERWRITE', object ARRAY())
+    !this.lastcmd = !cmd.Trim().Replace(|'|, |''|)
+    if !this.lastcmd eq '' then
+        return
+    endif
+    if !this.stdin.ReadFile().Empty() then
+        syscom '$!this.lastcmd 1> "$!this.stdout" 2> "$!this.stderr"'
+    else
+        syscom '< "$!this.stdin" $!this.lastcmd 1> "$!this.stdout" 2> "$!this.stderr"'
+        !this.stdin.WriteFile('OVERWRITE', object ARRAY())
+    endif
+endmethod
+
+-- WriteStdin writes a STRING to Stdin.
+define method .WriteStdin(!s is STRING)
+    !a[1] = !s
+    !this.stdin.WriteFile('OVERWRITE', !a)
+endmethod
+
+-- WriteStdin writes an ARRAY of STRING to Stdin.
+define method .WriteStdin(!a is ARRAY)
+    !this.stdin.WriteFile('OVERWRITE', !a)
+endmethod
+
+-- WriteStdin writes a FILE to Stdin.
+define method .WriteStdin(!f is FILE)
+    !this.stdin.DeleteFile()
+    !f.Copy(!this.stdin)
+endmethod
+
+-- ReadStdOut returns an ARRAY of the contents from Stdout.
+define method .ReadStdout() is ARRAY
+    return !this.stdout.ReadFile()
+endmethod
+
+-- ReadStderr returns an ARRAY of the contents from Stderr.
+define method .ReadStderr() is ARRAY
+    return !this.stderr.ReadFile()
+endmethod
