@@ -62,9 +62,9 @@ define method .Run(!cmd is STRING)
         return
     endif
     if !this.stdin.ReadFile().Empty() then
-        syscom '$!this.lastcmd 1> "$!this.stdout" 2> "$!this.stderr"'
+        syscom '$!this.lastcmd 1>> "$!this.stdout" 2>> "$!this.stderr"'
     else
-        syscom '< "$!this.stdin" $!this.lastcmd 1> "$!this.stdout" 2> "$!this.stderr"'
+        syscom '< "$!this.stdin" $!this.lastcmd 1>> "$!this.stdout" 2>> "$!this.stderr"'
         !this.stdin.WriteFile('OVERWRITE', object ARRAY())
     endif
 endmethod
